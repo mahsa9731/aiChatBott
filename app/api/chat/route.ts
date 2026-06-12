@@ -1,39 +1,34 @@
-import Groq from "groq-sdk";
+import { NextRequest } from 'next/server';
 
-export async function POST(req: Request) {
-  try {
-    const { messages } = await req.json();
-
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "API Key missing" }), { status: 500 });
-    }
-
-    const groq = new Groq({ apiKey });
-
-    const formattedMessages = messages.map((msg: any) => ({
-      role: msg.role === 'user' ? 'user' : 'assistant',
-      content: msg.content
-    }));
-
-    const completion = await groq.chat.completions.create({
-      messages: formattedMessages,
-      model: "llama-3.1-8b-instant",
-      temperature: 0.7,
-      max_tokens: 1024,
-    });
-
-    const responseText = completion.choices[0]?.message?.content;
-
-    return new Response(responseText, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-    });
-
-  } catch (error: any) {
-    console.error("Groq Error Details:", error);
-    return new Response(JSON.stringify({ 
-      error: error.message || "Unknown error occurred" 
-    }), { status: 500 });
+export async function POST(req: NextRequest) {
+  if (!process.env.METIS_API_KEY) {
+    return new Response('METIS_API_KEY is not configured', { status: 500 });
   }
+
+  const { messages } = await req.json();
+
+  const upstream = await fetch(
+    'https://api.metisai.ir/deepseek/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.METIS_API_KEY}`,
+      },
+      body: JSON.stringify({ model: 'deepseek-chat', messages, stream: true }),
+    },
+  );
+
+  if (!upstream.ok) {
+    const err = await upstream.text();
+    return new Response(err, { status: upstream.status });
+  }
+
+  return new Response(upstream.body, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  });
 }
