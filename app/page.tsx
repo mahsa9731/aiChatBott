@@ -138,20 +138,33 @@ export default function ChatPage() {
       const replyText = await response.text();
 
       if (replyText) {
-        setSessions((prev) =>
-          prev.map((s) => s.id === activeId ? {
-            ...s,
-            messages: s.messages.map((m) => m.id === assistantId ? { ...m, content: replyText } : m)
-          } : s)
-        );
-      } else {
-        setSessions((prev) =>
-          prev.map((s) => s.id === activeId ? {
-            ...s,
-            messages: s.messages.map((m) => m.id === assistantId ? { ...m, content: 'پاسخی دریافت نشد.', error: true } : m)
-          } : s)
-        );
-      }
+  
+  let cleanText = replyText;
+  
+  try {
+    
+    if (replyText.startsWith('{') || replyText.startsWith('[')) {
+      const parsed = JSON.parse(replyText);
+      cleanText = parsed.content || parsed.text || parsed.reply || cleanText;
+    }
+  } catch (e) {
+    
+  }
+
+  setSessions((prev) =>
+    prev.map((s) => s.id === activeId ? {
+      ...s,
+      messages: s.messages.map((m) => m.id === assistantId ? { ...m, content: cleanText } : m)
+    } : s)
+  );
+} else {
+  setSessions((prev) =>
+    prev.map((s) => s.id === activeId ? {
+      ...s,
+      messages: s.messages.map((m) => m.id === assistantId ? { ...m, content: 'پاسخی دریافت نشد.', error: true } : m)
+    } : s)
+  );
+}
 
       setRetryPayload(null);
     } catch (err: any) {
